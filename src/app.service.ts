@@ -5,6 +5,6 @@ config()
 @Injectable()
 export class AppService {
   getHello(): string {
-    return "Service up: " + process.env.VERSION;
+    return "Service up with version: " + process.env.VERSION;
   }
 }

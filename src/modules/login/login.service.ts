@@ -5,17 +5,40 @@ import { UpdateLoginDto } from './dto/update-login.dto';
 import {hash, compare} from "bcrypt";
 import { MailerSend } from 'src/helper/mailer';
 import {sign} from "jsonwebtoken";
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { KeyCloackTokenModel } from 'src/helper/KeyClockTokenModel';
+import * as queryString from 'querystring';
+import axios from 'axios';
 
 @Injectable()
 export class LoginService {
-  constructor(private prismaService: PrismaService, private mailSend: MailerSend){}
+
+  private keycloakLoginUri: string;
+  private keycloakResponseType: string;
+  private keycloakScope: string;
+  private keycloakRedirectUri: string;
+  private keycloakClientId: string;
+  private keycloakClientSecret: string;
+  private keycloakTokenUri: string;
+  private keycloakLogoutUri: string;
+
+  constructor(private prismaService: PrismaService, private mailSend: MailerSend, readonly _config: ConfigService, readonly _http: HttpService){
+    this.keycloakLoginUri = _config.get('KEYCLOAK_LOGIN_URI');
+    this.keycloakResponseType = _config.get('KEYCLOAK_RESPONSE_TYPE');
+    this.keycloakScope = _config.get('KEYCLOAK_SCOPE');
+    this.keycloakRedirectUri = _config.get('KEYCLOAK_REDIRECT_URI');
+    this.keycloakClientId = _config.get('KEYCLOAK_CLIENT_ID'); 
+    this.keycloakClientSecret = _config.get('KEYCLOAK_CLIENT_SECRET');
+    this.keycloakTokenUri = this._config.get('KEYCLOAK_TOKEN_URI');
+    this.keycloakLogoutUri = this._config.get('KEYCLOAK_LOGOUT_URI');
+  }
 
   async create(createLoginDto: CreateLoginDto) { 
     createLoginDto.emailValidation = false
     createLoginDto.password = await hash(createLoginDto.password, 10)
     try{
-      await this.mailSend.sendEmailBoasVindas
-      (createLoginDto.email, createLoginDto.username, "/login/verify/");
+      // await this.mailSend.sendEmailBoasVindas(createLoginDto.email, createLoginDto.username, "/login/verify/");
       Logger.log("Usuario criado LoginService.create")
       return await this.prismaService.usuario.create({data:createLoginDto})
     } catch(e){
@@ -148,5 +171,44 @@ export class LoginService {
       Logger.error("loginService.loginUser Login/senha invalidos")
       throw new HttpException("Login/senha invalidos", HttpStatus.BAD_REQUEST)
     }
+  }
+
+  getUrlLogin(): any {
+    return { url: `${this.keycloakLoginUri}`
+    +`?client_id=${this.keycloakClientId}`
+        +`&response_type=${this.keycloakResponseType}`
+        +`&scope=${this.keycloakScope}`
+        +`&redirect_uri=${this.keycloakRedirectUri}`
+    }
+  }
+
+  getToken(code: string){
+    const params = {
+      grant_type: "authorization_code",
+      client_id: this.keycloakClientId,
+      client_secret: this.keycloakClientSecret,
+      code: code,
+      redirect_uri: this.keycloakRedirectUri
+    }
+
+    return this.makePostRequestToGetToken(this.keycloakTokenUri, queryString.stringify(params), this.getContentType());
+  }
+
+  async makePostRequestToGetToken(url, queryParams, headers) {
+    try {
+      const response: any = await axios.post(url, queryParams, { headers });
+      return new KeyCloackTokenModel (
+        response.data.access_token,
+        response.data.refresh_token,
+        response.data.expires_in,
+        response.data.refresh_expires_in
+    );
+    } catch (error) {
+      throw new Error(`Error making POST request: ${error}`);
+    }
+  }
+  
+  getContentType() {
+    return { headers: { 'Content-Type' : 'application/x-www-form-urlencoded'} }
   }
 }

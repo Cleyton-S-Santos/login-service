@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgresdb
+    environment:
+      POSTGRES_DB: devdb
+      POSTGRES_USER: dbuser
+      POSTGRES_PASSWORD: dbpassword
+    ports:
+      - "5432:5432"
+    networks:
+      - keycloak_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:20.0.2
+    container_name: keycloak
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_DATABASE: devdb
+      DB_USER: dbuser
+      DB_PASSWORD: dbpassword
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_USER: user
+      KEYCLOAK_PASSWORD: user
+    command: ["start-dev"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - keycloak_network
+
+networks:
+  keycloak_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

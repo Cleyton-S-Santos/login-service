@@ -1,38 +1,52 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Logger, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Logger, Query, UseGuards, Redirect } from '@nestjs/common';
 import { LoginService } from './login.service';
 import { CreateLoginDto } from './dto/create-login.dto';
 import { UpdateLoginDto } from './dto/update-login.dto';
-import { LoginDTO } from './dto/login.dto';
+import { Unprotected } from 'nest-keycloak-connect';
 
-@Controller('login')
+@Controller('user')
 export class LoginController {
   constructor(private readonly loginService: LoginService) {}
 
-  @Post()
+  @Get("/login")
+  @Redirect("", 301)
+  @Unprotected()
+  login(){
+    return this.loginService.getUrlLogin()
+  }
+
+  @Get('callback')
+  @Unprotected()
+  getAccessToken(@Query('code') code: string) {
+    console.log(this.loginService.getToken(code))
+    return this.loginService.getToken(code);
+  }
+
+  @Post("/create")
   create(@Body() createLoginDto: CreateLoginDto) {
     Logger.log("Entrada LoginController.create")
     return this.loginService.create(createLoginDto);
   }
 
-  @Get()
-  findAll() {
-    Logger.log("Entrada LoginController.findAll")
-    return this.loginService.findAll();
-  }
+  // @Get()
+  // findAll() {
+  //   Logger.log("Entrada LoginController.findAll")
+  //   return this.loginService.findAll();
+  // }
 
-  @Get(':id')
+  @Get('/one/:id')
   findOne(@Param('id') id: string) {
     Logger.log("Entrada LoginController.findOne")
     return this.loginService.findOne(id);
   }
 
-  @Patch(':id')
+  @Patch('/update/:id')
   update(@Param('id') id: string, @Body() updateLoginDto: UpdateLoginDto) {
     Logger.log('Entrada LoginController.update')
     return this.loginService.update(id, updateLoginDto);
   }
 
-  @Delete(':id')
+  @Delete('/delete/:id')
   remove(@Param('id') id: string) {
     Logger.log("Entrada LoginController.remove")
     return this.loginService.remove(id);
@@ -56,9 +70,9 @@ export class LoginController {
     return this.loginService.changePass(email, senha)
   }
 
-  @Post("/user")
-  logUser(@Body() data: LoginDTO){
-   Logger.log("Entrada LoginController.logUser: " + data.email)
-    return this.loginService.loginUser(data.email, data.senha)
-  }
+  // @Post("/user")
+  // logUser(@Body() data: LoginDTO){
+  //  Logger.log("Entrada LoginController.logUser: " + data.email)
+  //   return this.loginService.loginUser(data.email, data.password)
+  // }
 }
